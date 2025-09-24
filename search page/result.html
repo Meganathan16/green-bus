@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bus Results</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+
+  <h1 class="text-2xl font-bold text-gray-800 mb-6">Available Buses</h1>
+
+  <div id="busList" class="grid gap-4"></div>
+
+  <script>
+    async function loadResults() {
+      const params = new URLSearchParams(window.location.search);
+      const from = params.get("from");
+      const to = params.get("to");
+      const date = params.get("date");
+
+      const busList = document.getElementById("busList");
+      busList.innerHTML = "<p>Loading buses...</p>";
+
+      try {
+        const response = await fetch(`http://localhost:5000/search?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&date=${encodeURIComponent(date)}`);
+        const data = await response.json();
+
+        busList.innerHTML = "";
+
+        if (data.message) {
+          busList.innerHTML = `<p class="text-red-500">${data.message}</p>`;
+          return;
+        }
+
+        data.forEach(bus => {
+          const div = document.createElement("div");
+          div.className = "bg-white p-4 rounded-lg shadow";
+          div.innerHTML = `
+            <h2 class="text-lg font-semibold">${bus.bus_name}</h2>
+            <p>From: ${bus.from_city} → To: ${bus.to_city}</p>
+            <p>Departure: ${bus.departure_time} | Arrival: ${bus.arrival_time}</p>
+            <p>Price: ₹${bus.price} | Seats: ${bus.seats_available}</p>
+            <button onclick="bookBus(${bus.id})" class="mt-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Book Now</button>
+          `;
+          busList.appendChild(div);
+        });
+      } catch (err) {
+        busList.innerHTML = `<p class="text-red-500">Error fetching buses</p>`;
+        console.error(err);
+      }
+    }
+
+    function bookBus(busId) {
+      alert(`You clicked Book Now for bus ID: ${busId}`);
+      // You can redirect to booking page here
+      // window.location.href = `booking.html?busId=${busId}`;
+    }
+
+    loadResults();
+  </script>
+
+</body>
+</html>

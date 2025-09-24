@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bus Results</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+
+<div class="flex justify-center mt-6">
+  <div class="w-full max-w-6xl flex gap-6">
+
+    <!-- Sidebar Filters -->
+    <aside class="w-1/4 bg-white p-4 rounded-lg shadow">
+      <h2 class="text-lg font-semibold mb-3">Filters</h2>
+
+      <!-- Departure Time -->
+      <div class="mb-4">
+        <h3 class="font-medium">Departure Time</h3>
+        <label><input type="checkbox" class="filter-depart" value="Early Morning"> Early Morning</label><br>
+        <label><input type="checkbox" class="filter-depart" value="Morning"> Morning</label><br>
+        <label><input type="checkbox" class="filter-depart" value="Afternoon"> Afternoon</label><br>
+        <label><input type="checkbox" class="filter-depart" value="Evening"> Evening/Night</label>
+      </div>
+
+      <!-- Arrival Time -->
+      <div class="mb-4">
+        <h3 class="font-medium">Arrival Time</h3>
+        <label><input type="checkbox" class="filter-arrive" value="Morning"> Morning</label><br>
+        <label><input type="checkbox" class="filter-arrive" value="Afternoon"> Afternoon</label><br>
+        <label><input type="checkbox" class="filter-arrive" value="Evening"> Evening/Night</label>
+      </div>
+
+      <!-- Duration -->
+      <div class="mb-4">
+        <h3 class="font-medium">Duration</h3>
+        <label><input type="checkbox" class="filter-duration" value="lt6"> Less than 6 hours</label><br>
+        <label><input type="checkbox" class="filter-duration" value="6to12"> 6–12 hours</label><br>
+        <label><input type="checkbox" class="filter-duration" value="gt12"> 12+ hours</label>
+      </div>
+
+      <!-- Bus Type -->
+      <div class="mb-4">
+        <h3 class="font-medium">Bus Type</h3>
+        <label><input type="checkbox" class="filter-type" value="Sleeper"> Sleeper</label><br>
+        <label><input type="checkbox" class="filter-type" value="Seater"> Seater</label><br>
+        <label><input type="checkbox" class="filter-type" value="AC"> AC</label><br>
+        <label><input type="checkbox" class="filter-type" value="Non-AC"> Non-AC</label>
+      </div>
+
+      <!-- Price -->
+      <div class="mb-4">
+        <h3 class="font-medium">Fare (₹)</h3>
+        <input type="number" id="minPrice" placeholder="Min" class="border p-1 w-20"> -
+        <input type="number" id="maxPrice" placeholder="Max" class="border p-1 w-20">
+      </div>
+
+      <!-- Amenities -->
+      <div class="mb-4">
+        <h3 class="font-medium">Amenities</h3>
+        <div class="amenities-list">
+          <!-- Predefined amenities -->
+          <label><input type="checkbox" class="filter-amenity" value="Wi-Fi"> Wi-Fi</label><br>
+          <label><input type="checkbox" class="filter-amenity" value="Charging"> Charging</label><br>
+          <label><input type="checkbox" class="filter-amenity" value="Blanket"> Blanket</label><br>
+          <label><input type="checkbox" class="filter-amenity" value="TV"> TV</label><br>
+          <label><input type="checkbox" class="filter-amenity" value="Water"> Water</label><br>
+          <label><input type="checkbox" class="filter-amenity" value="Snacks"> Snacks</label>
+        </div>
+      </div>
+
+      <!-- Operator -->
+      <div class="mb-4">
+        <h3 class="font-medium">Operator</h3>
+        <select id="filter-operator" class="border p-1 w-full"></select>
+      </div>
+
+      <!-- Seats -->
+      <div class="mb-4">
+        <h3 class="font-medium">Seat Availability</h3>
+        <label><input type="checkbox" id="filter-seats"> Only with seats</label>
+      </div>
+
+    </aside>
+
+    <!-- Bus Results -->
+    <main class="w-3/4">
+      <h1 class="text-2xl font-bold mb-6 text-center">Available Buses</h1>
+      <div id="busList" class="flex flex-col items-center gap-4"></div>
+    </main>
+
+  </div>
+</div>
+
+<script>
+let allBuses = [];
+
+async function loadResults() {
+  const params = new URLSearchParams(window.location.search);
+  const from = params.get("from");
+  const to = params.get("to");
+  const date = params.get("date");
+
+  try {
+    const res = await fetch(`http://localhost:5000/search?from=${from}&to=${to}&date=${date}`);
+    const data = await res.json();
+    if(data.message){ document.getElementById("busList").innerHTML = `<p>${data.message}</p>`; return; }
+    allBuses = data;
+    populateOperators();
+    populateDynamicAmenities();
+    renderBuses(allBuses);
+  } catch(err){ console.error(err); }
+}
+
+// Populate operator dropdown
+function populateOperators() {
+  const opSelect = document.getElementById("filter-operator");
+  opSelect.innerHTML = '<option value="">All Operators</option>';
+  const operators = [...new Set(allBuses.map(b => b.operator_name))];
+  operators.forEach(op => { opSelect.innerHTML += `<option value="${op}">${op}</option>`; });
+}
+
+// Populate dynamic amenities (keep predefined ones)
+function populateDynamicAmenities() {
+  const amenDiv = document.querySelector(".amenities-list");
+  const amenitiesSet = new Set();
+  allBuses.forEach(b => b.amenities?.forEach(a => amenitiesSet.add(a)));
+  amenitiesSet.forEach(a => {
+    if(!["Wi-Fi","Charging","Blanket","TV","Water","Snacks"].includes(a)){
+      amenDiv.innerHTML += `<label><input type="checkbox" class="filter-amenity" value="${a}"> ${a}</label><br>`;
+    }
+  });
+}
+
+// Render buses
+function renderBuses(buses) {
+  const busList = document.getElementById("busList");
+  busList.innerHTML = "";
+  if(!buses.length){ busList.innerHTML = "<p>No buses match filters.</p>"; return; }
+
+  buses.forEach(bus => {
+    const div = document.createElement("div");
+    div.className = "bg-white p-4 rounded-lg shadow w-3/4 flex justify-between items-center";
+    div.innerHTML = `
+      <div>
+        <h2 class="font-semibold">${bus.operator_name}</h2>
+        <p>${bus.from_city} → ${bus.to_city}</p>
+        <p>Departure: ${bus.departure_time} | Arrival: ${bus.arrival_time}</p>
+        <p>Price: ₹${bus.price}</p>
+        <p>Bus: ${bus.bus_name}</p>
+        <p>Type: ${bus.bus_type}</p>
+      </div>
+      <div>
+        <button onclick="bookSeats(${bus.id})" class="px-4 py-2 bg-green-600 text-white rounded">Book Seats</button>
+      </div>`;
+    busList.appendChild(div);
+  });
+}
+
+// Live filter
+async function applyFilters() {
+  const params = new URLSearchParams(window.location.search);
+  let url = `http://localhost:5000/search?from=${params.get("from")}&to=${params.get("to")}&date=${params.get("date")}`;
+
+  const dep = [...document.querySelectorAll(".filter-depart:checked")].map(cb=>cb.value);
+  if(dep.length) url += `&departureTime=${dep.join(",")}`;
+
+  const arr = [...document.querySelectorAll(".filter-arrive:checked")].map(cb=>cb.value);
+  if(arr.length) url += `&arrivalTime=${arr.join(",")}`;
+
+  const dur = [...document.querySelectorAll(".filter-duration:checked")].map(cb=>cb.value);
+  if(dur.length) url += `&duration=${dur.join(",")}`;
+
+  const type = [...document.querySelectorAll(".filter-type:checked")].map(cb=>cb.value);
+  if(type.length) url += `&busType=${type.join(",")}`;
+
+  const minPrice = document.getElementById("minPrice").value;
+  const maxPrice = document.getElementById("maxPrice").value;
+  if(minPrice) url += `&minFare=${minPrice}`;
+  if(maxPrice) url += `&maxFare=${maxPrice}`;
+
+  const operator = document.getElementById("filter-operator").value;
+  if(operator) url += `&operator=${operator}`;
+
+  const seatsOnly = document.getElementById("filter-seats").checked;
+  if(seatsOnly) url += `&seatsOnly=true`;
+
+  const amenities = [...document.querySelectorAll(".filter-amenity:checked")].map(cb=>cb.value);
+  if(amenities.length) url += `&amenities=${amenities.join(",")}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    renderBuses(data.message ? [] : data);
+  } catch(err){ console.error(err); renderBuses([]); }
+}
+
+// Book seats
+function bookSeats(busId) {
+  window.location.href = `../seats/seats.html?busId=${busId}`;
+}
+
+// Attach live filter
+document.addEventListener("change", applyFilters);
+
+// Load buses
+loadResults();
+</script>
+</body>
+</html>
